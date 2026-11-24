@@ -16,6 +16,12 @@ interface StatCardProps {
 
 const looksLikeWords = (v: string) => /[A-Za-z]{3,}/.test(v);
 
+/**
+ * Width of one monospaced character in em (JetBrains Mono is 0.6em; a little extra covers
+ * tight tracking and currency symbols drawn from a fallback font).
+ */
+const MONO_CHAR_EM = 0.64;
+
 export const StatCard: React.FC<StatCardProps> = ({
   label,
   value,
@@ -39,9 +45,10 @@ export const StatCard: React.FC<StatCardProps> = ({
   const font = valueFont ?? (looksLikeWords(value) ? 'sans' : 'mono');
 
   return (
-    // Content is top-aligned so values line up across a row of cards, whatever the subtext
+    // Content is top-aligned so values line up across a row of cards, whatever the subtext.
+    // The card is a size container so amounts can shrink to fit narrow cards (see below).
     <div
-      className={`rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5 flex flex-col min-w-0 ${
+      className={`@container rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5 flex flex-col min-w-0 ${
         tone === 'planned' ? 'border-dashed border-violet-300 dark:border-violet-800' : ''
       } ${className}`}
     >
@@ -49,12 +56,25 @@ export const StatCard: React.FC<StatCardProps> = ({
         {label}
       </div>
       <div
-        className={`mt-1.5 font-semibold tracking-tight leading-tight break-words ${
-          font === 'mono' ? 'font-mono-num tabular-nums' : 'font-[family-name:var(--font-display)]'
+        className={`mt-1.5 font-semibold tracking-tight leading-tight ${
+          font === 'mono'
+            ? 'font-mono-num tabular-nums whitespace-nowrap'
+            : 'font-[family-name:var(--font-display)] break-words'
         } ${size === 'lg' ? 'text-2xl sm:text-3xl' : 'text-xl sm:text-2xl'} ${valueToneClass}`}
         title={value}
       >
-        {value}
+        {font === 'mono' ? (
+          // Amounts never wrap mid-number: keep the normal size, but shrink to the card width
+          <span
+            style={{
+              fontSize: `min(1em, calc(100cqi / ${(MONO_CHAR_EM * Math.max(value.length, 1)).toFixed(2)}))`,
+            }}
+          >
+            {value}
+          </span>
+        ) : (
+          value
+        )}
       </div>
       {subtext && (
         <div className="mt-1.5 text-xs text-slate-500 dark:text-slate-400 leading-snug">

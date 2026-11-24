@@ -1,13 +1,15 @@
 # Ledgerity
 
-**Expenses & funds projection that runs on your own computer.**
+**Track what big purchases really cost, and project your balance from payday to payday. Runs on your own computer.**
 
 Ledgerity answers two questions:
 
-1. **What does this purchase *really* cost?** Break a car, a PC or a console into parts. Track installments (including interest, fees and late charges), recurring fees and payments, and see how much you've paid so far and how much is left.
-2. **How much money will I have, and when?** Project your balance from payday to payday with recurring income and bills. Mark items done as they happen, and test "what if" scenarios before you buy.
+1. **What has this big expense really cost me, and am I keeping up with it?** Break a car, a PC or a console into parts and follow each one: installments (with interest, fees and late charges), recurring costs and one-off payments. See the true total, what you've paid so far, what's left, and which dues are coming up or overdue.
+2. **How much money will I have, and when?** Start from an amount you enter (one lump sum, or several sources such as bank + cash on hand that add up) and project it forward with recurring income and bills, cutoff by cutoff. Dues from your expenses are included automatically, and you can test "what if" scenarios before you buy.
 
-Everything is stored in a single SQLite file on your machine. There are no accounts, no cloud, and no tracking.
+Ledgerity is not a bank-account or budgeting tracker. It doesn't hold your account balances; you tell it what you're starting with, and it works forward from there.
+
+Everything is stored in a single SQLite file on your machine. There is no sign-up, no cloud, and no tracking.
 
 ![Dashboard](docs/screenshots/dashboard-light.png)
 
@@ -27,21 +29,27 @@ Everything is stored in a single SQLite file on your machine. There are no accou
 ## Features
 
 **Expenses**
-- One page per expense. Parts can be **paid in full**, **installment**, **recurring** (insurance, subscriptions), **flexible** (pay any amount) or **planned** (wishlist).
-- **One installment plan can cover several parts** (e.g. GPU + CPU on one card plan). Down payment, interest, processing fees and late charges are all included in the true total.
-- Per-part share of interest, cost of financing, a due schedule with overdue alerts, and a payment log.
-- A **"Can I afford it?"** check for planned purchases, run against your projection.
+- One page per big expense, broken into parts. Each part is **paid in full**, **installment**, **recurring** (insurance, subscriptions), **flexible** (pay any amount, any time) or **planned** (not bought yet).
+- **Installment plans** can cover several parts (e.g. GPU + CPU on one card plan), with a down payment, interest (fixed amount, monthly add-on rate, or worked out from the monthly payment), processing fees and late charges. Dues can be monthly, twice a month, every 2 weeks or weekly.
+- **Totals that include everything:** paid so far, remaining, true total and cost of financing, plus each part's share of the interest.
+- A **due schedule** with overdue alerts, and a **payment log** where each payment is tied to a specific installment, charge or recurring occurrence, so you can check that every due was paid.
+- Charts for cost per part, paid vs. remaining, and cumulative payments over time.
+- **"Can I afford it?"** for planned parts: test the purchase against a projection, then add it to that projection or to a new scenario.
 
 **Funds projection**
-- Recurring items: weekly, semi-monthly (10th & 25th by default), monthly, yearly or custom. Weekend paydays move to the next business day.
-- View by **cutoff period** or as one **ledger**, with a running balance and a balance chart.
-- **Plan vs. actual**: tick items as done, enter the real amount, or set your actual balance.
-- **Dues from Expenses show up automatically**, and you can exclude any of them.
-- **Starting balance from one lump sum or several sources** (e.g. bank + cash on hand) that add up to the total, editable any time.
-- **Scenarios**: duplicate a projection, change it, and compare side by side.
+- **Starting balance** from one lump sum or several named sources that add up to the total. You can edit it at any time.
+- **Recurring income and bills:** once, daily, weekly, every 2 weeks, twice a month, monthly or yearly, with an optional end date or number of times. Weekend dates can stay as they are or move to the previous or next business day.
+- View by **cutoff period** (the 10th and 25th by default) or as one **ledger**, with a running balance and a chart marking paydays and big outflows.
+- **Plan vs. actual:** tick items as done, enter the real amount, skip or move a single occurrence, or set your actual total balance on a date.
+- **Dues from Expenses show up automatically.** Overdue ones are carried to the start of the projection, and you can exclude any of them.
+- **Scenarios:** duplicate a projection, change it, and compare up to three side by side.
+
+**Dashboard**
+- Balance today according to your main projection (confirmed items only, with unconfirmed ones shown separately), days to the next payday, and the projected end balance.
+- Overdue dues and dues in the next 30 days, each with a one-click "Log payment", plus a calendar and recent payments.
 
 **App**
-- Dashboard, light/dark theme, and a layout that works on phones.
+- Light/dark theme and a layout that works on phones.
 - Automatic daily backups, one-click restore, JSON export/import and CSV export.
 - Optional access from your phone over your home Wi-Fi.
 
