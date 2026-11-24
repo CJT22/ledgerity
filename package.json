@@ -1,0 +1,52 @@
+{
+  "name": "ledgerity",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Local-first expense tracking and funds projection, stored in SQLite on your own computer.",
+  "author": "CJT22",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n api,web -c cyan,magenta \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:lan": "concurrently -k -n api,web -c cyan,magenta \"npm:dev:server\" \"vite --host\"",
+    "dev:server": "tsx watch --clear-screen=false server/src/index.ts",
+    "dev:client": "vite",
+    "dev:mock": "vite --mode mock",
+    "build": "vite build",
+    "start": "npm run build && npm run serve",
+    "serve": "tsx server/src/index.ts --production",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@fontsource-variable/dm-sans": "^5.3.0",
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
+    "@fontsource-variable/plus-jakarta-sans": "^5.3.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "@vitejs/plugin-react": "^6.1.1",
+    "date-fns": "^4.4.0",
+    "express": "^4.21.2",
+    "lucide-react": "^0.546.0",
+    "react": "^19.0.1",
+    "react-dom": "^19.0.1",
+    "react-router-dom": "^7.18.6",
+    "recharts": "^3.11.1",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.21.0",
+    "vite": "^8.3.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "concurrently": "^10.0.7",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.1"
+  }
+}
