@@ -149,9 +149,6 @@ export interface OccurrenceOverride {
   skipped?: boolean;
   movedToDate?: ISODate;
   plannedAmount?: Money;
-  status: 'planned' | 'done';
-  actualAmount?: Money;
-  actualDate?: ISODate;
   note?: string;
 }
 
@@ -259,13 +256,13 @@ export interface ProjectionRow {
   type: ProjectionItemType | 'adjustment';
   name: string;
   plannedAmount: Money;
-  actualAmount?: Money;
-  actualDate?: ISODate;
   effectiveAmount: Money;
-  status: 'planned' | 'done';
   skipped: boolean;
   excluded: boolean;
-  unconfirmed: boolean;
+  /** Own items only: this date was changed by hand (moved, amount changed or skipped). */
+  edited?: boolean;
+  /** Linked dues only: fully paid on the Expenses page. */
+  paid?: boolean;
   isLinkedFromExpense: boolean;
   linkedExpenseId?: string;
   linkedExpenseName?: string;
@@ -370,10 +367,6 @@ export interface DashboardData {
     targetLabel: string;
   })[];
   paydayDatesInRange: ISODate[];
-  /** Past items (up to today) not yet marked done; excluded from the current balance. */
-  pendingConfirmationCount: number;
-  /** Net effect those items would have if confirmed (adds positive, minus negative). */
-  pendingConfirmationNet: Money;
 }
 
 export interface ProjectionComparison {

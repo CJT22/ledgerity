@@ -19,17 +19,12 @@ import { Models } from '../server/src/models';
 const TODAY = '2026-11-24';
 
 describe('dashboard current balance', () => {
-  it('counts only confirmed items; unconfirmed past items are reported as pending', () => {
+  it('is the projected running balance at the end of today (past items count as happened)', () => {
     const state = createSeedState(TODAY);
     const dash = buildDashboard(state, TODAY);
     const proj = runProjectionById(state, 'proj_main', TODAY);
     const lastPast = proj.rows.filter((r) => r.effectiveDate <= TODAY).slice(-1)[0];
-
-    // The seed has an overdue, unpaid car installment inside the current cutoff
-    expect(dash.pendingConfirmationCount).toBeGreaterThanOrEqual(1);
-    expect(dash.pendingConfirmationNet).toBeLessThan(0);
-    // Projection (assumes everything happened) = confirmed balance + pending effect
-    expect(dash.totalBalance + dash.pendingConfirmationNet).toBe(lastPast.runningTotal);
+    expect(dash.totalBalance).toBe(lastPast.runningTotal);
   });
 
   it('demo projection starts from the sum of its sources', () => {

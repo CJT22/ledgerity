@@ -582,43 +582,29 @@ export function createSeedState(today = todayISODate()): AppState {
 
   const projectionItems: ProjectionItem[] = [...mainItems, ...scenItems];
 
-  // Mark past items in current cutoff as done, with one actual differing from plan
+  // Demo of a one-off edit: the first past expense in the current cutoff cost more than planned
   const overrides: OccurrenceOverride[] = [];
-  const markPastAsDone = (items: ProjectionItem[]) => {
-    let adjustedFirstMinus = false;
-    for (const item of items) {
-      const occs = expand(item.recurrence, projStart, addDaysISO(today, -1));
-      for (const occ of occs) {
-        if (occ.effectiveDate < today) {
-          let actualAmt = item.amount;
-          let note: string | undefined;
-          if (!adjustedFirstMinus && item.type === 'minus') {
-            // Make one actual amount differ from planned
-            actualAmt = item.amount + 28000; // +₱280 higher than planned
-            note = 'Included extra household supplies';
-            adjustedFirstMinus = true;
-          }
-          overrides.push({
-            itemId: item.id,
-            originalDate: occ.originalDate,
-            status: 'done',
-            actualAmount: actualAmt,
-            actualDate: occ.effectiveDate,
-            note,
-          });
-        }
-      }
-    }
-  };
-  markPastAsDone(mainItems);
-  markPastAsDone(scenItems);
+  for (const item of mainItems) {
+    if (item.type !== 'minus') continue;
+    const past = expand(item.recurrence, projStart, addDaysISO(today, -1)).find(
+      (occ) => occ.effectiveDate < today
+    );
+    if (!past) continue;
+    overrides.push({
+      itemId: item.id,
+      originalDate: past.originalDate,
+      plannedAmount: item.amount + 28000, // +₱280 more than planned
+      note: 'Included extra household supplies',
+    });
+    break;
+  }
 
   // Also ensure at least one past occurrence on projStart is present if today == projStart
   // (already handled cleanly if projStart < today)
   void elevenMonthsAgo;
 
   return {
-    version: 2,
+    version: 3,
     settings,
     expenses,
     parts,

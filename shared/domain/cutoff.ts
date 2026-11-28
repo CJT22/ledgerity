@@ -36,13 +36,15 @@ export function getCutoffPeriods(
     year -= 1;
   }
 
+  // Look ahead 2 months so the period containing `to` has its closing payday. Compared as an
+  // absolute month index: `month + 2` overflows past December (Nov/Dec end dates lost their
+  // last period when this was compared within the same year).
   const endD = parseISODate(to);
-  const limitYear = endD.getFullYear();
-  const limitMonth = endD.getMonth() + 2;
+  const limitIndex = endD.getFullYear() * 12 + endD.getMonth() + 2;
 
   const paydays: ISODate[] = [];
   let guard = 0;
-  while ((year < limitYear || (year === limitYear && month <= limitMonth)) && guard < 200) {
+  while (year * 12 + month <= limitIndex && guard < 200) {
     guard++;
     for (const d of days) {
       const raw = clampDayInMonth(year, month, d);

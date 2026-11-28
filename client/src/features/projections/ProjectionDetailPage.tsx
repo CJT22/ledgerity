@@ -1,16 +1,10 @@
 import {
-  Check,
-  ChevronDown,
-  ChevronRight,
   CopyPlus,
   Download,
   Edit3,
-  EyeOff,
-  Link2,
   Plus,
   RotateCcw,
   Scale,
-  Trash2,
 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -35,7 +29,6 @@ import {
   Modal,
   MoneyInput,
   StatCard,
-  StatusBadge,
 } from '../../components';
 import { useApp } from '../../context/AppContext';
 import { formatShortDate, todayISODate } from '@shared/domain';
@@ -51,6 +44,7 @@ import { CheckpointModal } from './CheckpointModal';
 import { ProjectionItemDrawer } from './ProjectionItemDrawer';
 import { StartSourcesModal } from './StartSourcesEditor';
 import { ProjectionDetailsModal } from './ProjectionDetailsModal';
+import { CutoffList, LedgerList, RowFilter, RowHandlers } from './ProjectionRowList';
 
 function downloadTextFile(filename: string, content: string, mime = 'text/csv;charset=utf-8;') {
   const blob = new Blob([content], { type: mime });
@@ -72,7 +66,7 @@ export const ProjectionDetailPage: React.FC = () => {
   const [result, setResult] = useState<ProjectionResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'cutoff' | 'ledger'>('cutoff');
-  const [collapsedCutoffs, setCollapsedCutoffs] = useState<Record<string, boolean>>({});
+  const [rowFilter, setRowFilter] = useState<RowFilter>('all');
 
   // Drawers & modals
   const [itemDrawerOpen, setItemDrawerOpen] = useState(false);
@@ -196,36 +190,6 @@ export const ProjectionDetailPage: React.FC = () => {
     void load();
   };
 
-  const handleToggleDone = async (row: ProjectionRow) => {
-    if (row.source !== 'item' || !row.itemId) return;
-    const existing = overrideByKey.get(`${row.itemId}::${row.originalDate}`);
-    const nextStatus = row.status === 'done' ? 'planned' : 'done';
-    await api.upsertOverride({
-      ...existing,
-      itemId: row.itemId,
-      originalDate: row.originalDate,
-      status: nextStatus,
-      actualAmount: nextStatus === 'done' ? (existing?.actualAmount ?? row.plannedAmount) : existing?.actualAmount,
-      actualDate: nextStatus === 'done' ? (existing?.actualDate ?? row.effectiveDate) : existing?.actualDate,
-    });
-    void load();
-  };
-
-  const handleActualAmountChange = async (row: ProjectionRow, cents: Money) => {
-    if (row.source !== 'item' || !row.itemId) return;
-    const existing = overrideByKey.get(`${row.itemId}::${row.originalDate}`);
-    await api.upsertOverride({
-      ...existing,
-      itemId: row.itemId,
-      originalDate: row.originalDate,
-      status: 'done',
-      actualAmount: cents,
-      actualDate: existing?.actualDate ?? row.effectiveDate,
-    });
-    toast('Actual amount saved');
-    void load();
-  };
-
   const handleToggleExclusion = async (row: ProjectionRow) => {
     if (!row.linkedSourceType || !row.linkedSourceId) return;
     const excludedNow = await api.toggleExclusion({
@@ -259,7 +223,6 @@ export const ProjectionDetailPage: React.FC = () => {
       skipped: occSkipped,
       movedToDate: occMovedDate !== editingOccRow.originalDate ? occMovedDate : undefined,
       plannedAmount: occPlannedAmount,
-      status: existing?.status ?? 'planned',
       note: occNote.trim() || undefined,
     });
     setEditingOccRow(null);
@@ -298,316 +261,38 @@ export const ProjectionDetailPage: React.FC = () => {
   const paydayMarkers = timeline.filter((pt) => pt.hasPayday);
   const bigMinusMarkers = timeline.filter((pt) => pt.hasBigMinus);
 
-  const rowStyle = (row: ProjectionRow) => {
-    const isMinus = row.type === 'minus' || (row.type === 'adjustment' && row.effectiveAmount < 0);
-    const isAdd = row.type === 'add' || (row.type === 'adjustment' && row.effectiveAmount > 0);
-    const isMuted = row.skipped || row.excluded;
-    const amountColor = isMuted
-      ? 'text-slate-400 line-through'
-      : isAdd
-        ? 'text-emerald-600 dark:text-emerald-400'
-        : isMinus
-          ? 'text-rose-600 dark:text-rose-400'
-          : 'text-slate-700 dark:text-slate-300';
-    return { isAdd, isMinus, isMuted, amountColor };
+  const rowHandlers: RowHandlers = {
+    onEditOccurrence: openEditOccurrence,
+    onEditSeries: (itemId) => {
+      const series = itemById.get(itemId);
+      if (series) {
+        setEditingSeriesItem(series);
+        setItemDrawerOpen(true);
+      }
+    },
+    onDeleteSeries: (itemId) => {
+      const series = itemById.get(itemId);
+      if (series) void handleDeleteSeries(series);
+    },
+    onToggleExclusion: (row) => void handleToggleExclusion(row),
+    onDeleteCheckpoint: async (checkpointId) => {
+      await api.deleteCheckpoint(checkpointId);
+      toast('Checkpoint removed');
+      void load();
+    },
   };
 
-  /** Done checkbox (own items) or a read-only tick (linked dues paid in Expenses). */
-  const doneControl = (row: ProjectionRow) => (
-    <>
-      {row.source === 'item' && !row.skipped ? (
-        <button
-          type="button"
-          onClick={() => void handleToggleDone(row)}
-          aria-label={row.status === 'done' ? 'Mark as planned' : 'Mark as done'}
-          className={`w-5 h-5 rounded border inline-flex items-center justify-center transition-colors ${
-            row.status === 'done'
-              ? 'bg-emerald-600 border-emerald-600 text-white'
-              : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-950 hover:border-emerald-500'
-          }`}
-        >
-          {row.status === 'done' && <Check className="w-3.5 h-3.5" />}
-        </button>
-      ) : row.status === 'done' && !row.excluded ? (
-        <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400">
-          <Check className="w-3.5 h-3.5" />
-        </span>
-      ) : (
-        <span
-          className="inline-block w-5 h-5 rounded border border-dashed border-slate-300 dark:border-slate-600"
-          title={
-            row.isLinkedFromExpense
-              ? 'Not paid yet: log the payment on the expense page'
-              : 'Not confirmed'
-          }
-        />
-      )}
-    </>
-  );
+  const hasOverride =
+    editingOccRow?.itemId !== undefined &&
+    overrideByKey.has(`${editingOccRow.itemId}::${editingOccRow.originalDate}`);
 
-  /** Amount with plan-vs-actual editor. */
-  const amountDisplay = (row: ProjectionRow, withActualEditor = true) => {
-    const { isAdd, amountColor } = rowStyle(row);
-    return (
-      <>
-        <div className={`text-xs font-semibold font-mono-num tabular-nums ${amountColor}`}>
-          {row.type === 'adjustment'
-            ? formatAmount(row.effectiveAmount, { showSign: true })
-            : isAdd
-              ? `+${formatAmount(row.effectiveAmount)}`
-              : `−${formatAmount(row.effectiveAmount)}`}
-        </div>
-        {withActualEditor && row.source === 'item' && row.status === 'done' && !row.skipped && (
-          <div className="mt-1 flex items-center justify-end gap-1">
-            <span className="text-[10px] text-slate-400">Actual:</span>
-            <MoneyInput
-              compact
-              className="w-32"
-              value={row.actualAmount ?? row.plannedAmount}
-              onChange={(v) => void handleActualAmountChange(row, v)}
-            />
-          </div>
-        )}
-        {row.status === 'done' &&
-          row.actualAmount !== undefined &&
-          row.actualAmount !== row.plannedAmount && (
-            <div className="text-[10px] text-slate-400 font-mono-num">
-              Plan: {formatAmount(row.plannedAmount)}
-            </div>
-          )}
-      </>
-    );
+  const handleResetOccurrence = async () => {
+    if (!editingOccRow?.itemId) return;
+    await api.deleteOverride(editingOccRow.itemId, editingOccRow.originalDate);
+    setEditingOccRow(null);
+    toast('Date reset to the series');
+    void load();
   };
-
-  /** Occurrence / series / exclude / checkpoint actions. */
-  const rowActions = (row: ProjectionRow) => (
-    <>
-      {row.source === 'item' && row.itemId && (
-        <div className="inline-flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => openEditOccurrence(row)}
-            className="px-2 py-1 text-[11px] font-medium rounded border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-            title="Edit this occurrence"
-          >
-            Occurrence
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              const series = itemById.get(row.itemId!);
-              if (series) {
-                setEditingSeriesItem(series);
-                setItemDrawerOpen(true);
-              }
-            }}
-            className="p-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 rounded hover:bg-slate-100 dark:hover:bg-slate-800"
-            title="Edit whole series"
-          >
-            <Edit3 className="w-3.5 h-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              const series = itemById.get(row.itemId!);
-              if (series) void handleDeleteSeries(series);
-            }}
-            className="p-1.5 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 dark:hover:bg-rose-950/40"
-            title="Delete whole series"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
-      {row.isLinkedFromExpense && (
-        <button
-          type="button"
-          onClick={() => void handleToggleExclusion(row)}
-          className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-        >
-          {row.excluded ? (
-            <>
-              <RotateCcw className="w-3 h-3" />
-              <span>Include</span>
-            </>
-          ) : (
-            <>
-              <EyeOff className="w-3 h-3" />
-              <span>Exclude</span>
-            </>
-          )}
-        </button>
-      )}
-      {row.source === 'checkpoint' && row.checkpointId && (
-        <button
-          type="button"
-          onClick={async () => {
-            await api.deleteCheckpoint(row.checkpointId!);
-            toast('Checkpoint removed');
-            void load();
-          }}
-          className="p-1.5 text-slate-400 hover:text-rose-600 rounded"
-          title="Remove checkpoint"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
-      )}
-    </>
-  );
-
-  const renderRow = (row: ProjectionRow) => {
-    const { isMuted } = rowStyle(row);
-
-    const rowBg = row.isLinkedFromExpense && !row.excluded
-      ? 'bg-amber-50/40 dark:bg-amber-950/15'
-      : '';
-
-    const unconfirmedClass = row.unconfirmed
-      ? 'outline-1 outline-dotted outline-amber-400 dark:outline-amber-600 -outline-offset-2'
-      : '';
-
-    return (
-      <tr key={row.rowKey} className={`${rowBg} ${unconfirmedClass} hover:bg-slate-50/70 dark:hover:bg-slate-800/40`}>
-        {/* Done Checkbox */}
-        <td className="px-3 py-2.5 w-10 text-center">
-          {doneControl(row)}
-        </td>
-
-        {/* Date */}
-        <td className="px-3 py-2.5 text-xs whitespace-nowrap text-slate-700 dark:text-slate-300 font-mono-num">
-          <div className={isMuted ? 'line-through text-slate-400' : ''}>
-            {formatDate(row.effectiveDate)}
-          </div>
-          {row.unconfirmed && (
-            <div className="mt-0.5">
-              <StatusBadge status="unconfirmed" />
-            </div>
-          )}
-        </td>
-
-        {/* Name + Linked Badge */}
-        <td className="px-3 py-2.5 min-w-[200px]">
-          <div className={`text-xs font-medium flex items-center gap-1.5 flex-wrap ${isMuted ? 'line-through text-slate-400' : 'text-slate-900 dark:text-slate-100'}`}>
-            <span>{row.name}</span>
-            {row.isLinkedFromExpense && row.linkedExpenseId && (
-              <Link
-                to={`/expenses/${row.linkedExpenseId}`}
-                className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 dark:text-amber-400 hover:underline"
-                title={`View ${row.linkedExpenseName} expense`}
-              >
-                <Link2 className="w-3 h-3" />
-                <span>Expenses</span>
-              </Link>
-            )}
-          </div>
-          {row.note && (
-            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-              {row.note}
-            </div>
-          )}
-        </td>
-
-        {/* Amount + Plan vs Actual */}
-        <td className="px-3 py-2.5 text-right whitespace-nowrap">
-          {amountDisplay(row)}
-        </td>
-
-        {/* Running Total */}
-        <td className="px-3 py-2.5 text-right whitespace-nowrap font-mono-num tabular-nums text-xs font-semibold text-slate-900 dark:text-slate-100">
-          <span className={row.runningTotal < 0 ? 'text-rose-600 dark:text-rose-400' : ''}>
-            {formatAmount(row.runningTotal)}
-          </span>
-        </td>
-
-        {/* Actions */}
-        <td className="px-3 py-2.5 text-right whitespace-nowrap">
-          {rowActions(row)}
-        </td>
-      </tr>
-    );
-  };
-
-  /** Phone layout: one compact card per row instead of a wide table. */
-  const renderMobileRow = (row: ProjectionRow) => {
-    const { isMuted } = rowStyle(row);
-    return (
-      <li
-        key={row.rowKey}
-        className={`px-4 py-3 space-y-2 ${
-          row.isLinkedFromExpense && !row.excluded ? 'bg-amber-50/40 dark:bg-amber-950/15' : ''
-        } ${row.unconfirmed ? 'border-l-2 border-dashed border-amber-400 dark:border-amber-600' : ''}`}
-      >
-        <div className="flex items-start gap-3">
-          <div className="pt-0.5 w-5 shrink-0 flex justify-center">{doneControl(row)}</div>
-          <div className="min-w-0 flex-1">
-            <div
-              className={`text-sm font-medium ${
-                isMuted ? 'line-through text-slate-400' : 'text-slate-900 dark:text-slate-100'
-              }`}
-            >
-              {row.name}
-            </div>
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-500 dark:text-slate-400">
-              <span>{formatDate(row.effectiveDate)}</span>
-              {row.isLinkedFromExpense && row.linkedExpenseId && (
-                <Link
-                  to={`/expenses/${row.linkedExpenseId}`}
-                  className="inline-flex items-center gap-1 font-medium text-amber-700 dark:text-amber-400"
-                >
-                  <Link2 className="w-3 h-3" />
-                  Expenses
-                </Link>
-              )}
-              {row.unconfirmed && <StatusBadge status="unconfirmed" />}
-            </div>
-            {row.note && (
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">{row.note}</div>
-            )}
-          </div>
-          <div className="text-right shrink-0">{amountDisplay(row, false)}</div>
-        </div>
-        {row.source === 'item' && row.status === 'done' && !row.skipped && (
-          <label className="flex items-center gap-2 pl-8 text-[11px] text-slate-500 dark:text-slate-400">
-            <span>Actual amount</span>
-            <MoneyInput
-              compact
-              className="w-36"
-              value={row.actualAmount ?? row.plannedAmount}
-              onChange={(v) => void handleActualAmountChange(row, v)}
-            />
-          </label>
-        )}
-        <div className="flex items-center justify-between gap-2 pl-8">
-          <span className="text-[11px] text-slate-500 dark:text-slate-400">
-            Balance{' '}
-            <span
-              className={`font-mono-num tabular-nums font-semibold ${
-                row.runningTotal < 0
-                  ? 'text-rose-600 dark:text-rose-400'
-                  : 'text-slate-800 dark:text-slate-200'
-              }`}
-            >
-              {formatAmount(row.runningTotal)}
-            </span>
-          </span>
-          <div className="flex items-center gap-1">{rowActions(row)}</div>
-        </div>
-      </li>
-    );
-  };
-
-  const renderTableHeader = () => (
-    <thead>
-      <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/50 text-xs font-medium text-slate-500 dark:text-slate-400">
-        <th className="px-3 py-2 text-center w-10">Done</th>
-        <th className="px-3 py-2 text-left">Date</th>
-        <th className="px-3 py-2 text-left">Item</th>
-        <th className="px-3 py-2 text-right">Amount</th>
-        <th className="px-3 py-2 text-right">Running Balance</th>
-        <th className="px-3 py-2 text-right">Actions</th>
-      </tr>
-    </thead>
-  );
 
   return (
     <div className="space-y-6">
@@ -934,6 +619,34 @@ export const ProjectionDetailPage: React.FC = () => {
           </button>
         </div>
 
+        <div className="inline-flex items-center gap-1" role="group" aria-label="Show">
+          {(
+            [
+              ['all', 'All'],
+              ['add', 'Income'],
+              ['minus', 'Expenses'],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setRowFilter(value)}
+              aria-pressed={rowFilter === value}
+              className={`px-2.5 py-1 text-xs font-medium rounded-full border transition-colors ${
+                rowFilter === value
+                  ? value === 'add'
+                    ? 'bg-emerald-600 border-emerald-600 text-white'
+                    : value === 'minus'
+                      ? 'bg-rose-600 border-rose-600 text-white'
+                      : 'bg-slate-900 dark:bg-slate-100 border-transparent text-white dark:text-slate-900'
+                  : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         <label className="inline-flex items-center gap-2.5 text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer select-none">
           <input
             type="checkbox"
@@ -945,129 +658,37 @@ export const ProjectionDetailPage: React.FC = () => {
         </label>
       </div>
 
-      {/* By Cutoff View */}
-      {viewMode === 'cutoff' && (
-        <div className="space-y-4">
-          {cutoffGroups.map((group) => {
-            const collapsed = Boolean(collapsedCutoffs[group.id]);
-            const maxFlow = Math.max(1, group.totalIn, group.totalOut);
-            const inPct = Math.round((group.totalIn / maxFlow) * 100);
-            const outPct = Math.round((group.totalOut / maxFlow) * 100);
-
-            return (
-              <Card key={group.id} padding="none" className="overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setCollapsedCutoffs((prev) => ({ ...prev, [group.id]: !collapsed }))
-                  }
-                  className="w-full px-5 py-3.5 flex flex-wrap items-center justify-between gap-4 bg-slate-50/70 dark:bg-slate-950/50 hover:bg-slate-100/70 dark:hover:bg-slate-900 transition-colors text-left"
-                >
-                  <div className="flex items-center gap-2.5">
-                    {collapsed ? (
-                      <ChevronRight className="w-4 h-4 text-slate-400" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-slate-400" />
-                    )}
-                    <div>
-                      <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                        {group.label}
-                      </div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400 font-mono-num">
-                        Start {formatAmount(group.startBalance)} → End{' '}
-                        <span
-                          className={
-                            group.endBalance < 0
-                              ? 'text-rose-600 dark:text-rose-400 font-semibold'
-                              : 'text-slate-900 dark:text-slate-100 font-semibold'
-                          }
-                        >
-                          {formatAmount(group.endBalance)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-5">
-                    {/* Small In vs Out comparison bar */}
-                    <div className="hidden sm:flex flex-col gap-1 w-36">
-                      <div className="h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
-                        <div className="h-full bg-emerald-500" style={{ width: `${inPct}%` }} />
-                      </div>
-                      <div className="h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
-                        <div className="h-full bg-rose-500" style={{ width: `${outPct}%` }} />
-                      </div>
-                    </div>
-                    <div className="text-right text-xs font-mono-num tabular-nums">
-                      <div className="text-emerald-600 dark:text-emerald-400">
-                        +{formatAmount(group.totalIn)}
-                      </div>
-                      <div className="text-rose-600 dark:text-rose-400">
-                        −{formatAmount(group.totalOut)}
-                      </div>
-                    </div>
-                  </div>
-                </button>
-
-                {!collapsed && (
-                  <div className="md:overflow-x-auto border-t border-slate-200 dark:border-slate-800">
-                    {group.rows.length === 0 ? (
-                      <p className="px-5 py-4 text-xs text-slate-500 dark:text-slate-400">
-                        No scheduled items in this cutoff period.
-                      </p>
-                    ) : (
-                      <>
-                        <ul className="md:hidden divide-y divide-slate-100 dark:divide-slate-800/80">
-                          {group.rows.map((r) => renderMobileRow(r))}
-                        </ul>
-                        <table className="hidden md:table w-full border-collapse text-left">
-                          {renderTableHeader()}
-                          <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                            {group.rows.map((r) => renderRow(r))}
-                          </tbody>
-                        </table>
-                      </>
-                    )}
-                  </div>
-                )}
-              </Card>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Ledger View */}
-      {viewMode === 'ledger' && (
-        <Card padding="none" className="overflow-hidden">
-          {rows.length === 0 ? (
-            <div className="p-6">
-              <EmptyState
-                icon={<Plus className="w-5 h-5" />}
-                title="Empty ledger"
-                description="Add income or bills to populate your chronological ledger."
-                actionLabel="Add item"
-                onAction={() => {
-                  setEditingSeriesItem(null);
-                  setItemDrawerOpen(true);
-                }}
-              />
-            </div>
-          ) : (
-            <>
-              <ul className="md:hidden divide-y divide-slate-100 dark:divide-slate-800/80">
-                {rows.map((r) => renderMobileRow(r))}
-              </ul>
-              <div className="hidden md:block overflow-x-auto">
-                <table className="w-full border-collapse text-left">
-                  {renderTableHeader()}
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                    {rows.map((r) => renderRow(r))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
+      {rows.length === 0 ? (
+        <Card padding="none">
+          <div className="p-6">
+            <EmptyState
+              icon={<Plus className="w-5 h-5" />}
+              title="Nothing projected yet"
+              description="Add income or bills to see them here."
+              actionLabel="Add item"
+              onAction={() => {
+                setEditingSeriesItem(null);
+                setItemDrawerOpen(true);
+              }}
+            />
+          </div>
         </Card>
+      ) : viewMode === 'cutoff' ? (
+        <CutoffList
+          groups={cutoffGroups}
+          today={today}
+          filter={rowFilter}
+          handlers={rowHandlers}
+          formatAmount={formatAmount}
+        />
+      ) : (
+        <LedgerList
+          rows={rows}
+          today={today}
+          filter={rowFilter}
+          handlers={rowHandlers}
+          formatAmount={formatAmount}
+        />
       )}
 
       {/* Drawers & Modals */}
@@ -1109,7 +730,7 @@ export const ProjectionDetailPage: React.FC = () => {
       <Modal
         open={Boolean(editingOccRow)}
         onClose={() => setEditingOccRow(null)}
-        title="Edit Occurrence"
+        title="Edit This Date"
         subtitle={
           editingOccRow
             ? `${editingOccRow.name} · Original date ${formatDate(editingOccRow.originalDate)}`
@@ -1157,7 +778,18 @@ export const ProjectionDetailPage: React.FC = () => {
             />
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex items-center justify-end gap-2 pt-2">
+            {hasOverride && (
+              <button
+                type="button"
+                onClick={() => void handleResetOccurrence()}
+                className="mr-auto inline-flex items-center gap-1.5 px-2 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100"
+                title="Undo changes to this date and follow the series again"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                Reset to series
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setEditingOccRow(null)}
@@ -1169,7 +801,7 @@ export const ProjectionDetailPage: React.FC = () => {
               type="submit"
               className="px-4 py-2 text-xs font-medium rounded-lg bg-slate-900 dark:bg-emerald-600 text-white hover:bg-slate-800 dark:hover:bg-emerald-700"
             >
-              Save Occurrence
+              Save
             </button>
           </div>
         </form>

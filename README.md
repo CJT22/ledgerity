@@ -39,13 +39,13 @@ Everything is stored in a single SQLite file on your machine. There is no sign-u
 **Funds projection**
 - **Starting balance** from one lump sum or several named sources that add up to the total. You can edit it at any time.
 - **Recurring income and bills:** once, daily, weekly (every N weeks), twice a month, monthly, yearly, or custom (pick exact dates on a calendar), with an optional end date or number of times. Weekend dates can stay as they are or move to the previous or next business day.
-- View by **cutoff period** (the 10th and 25th by default) or as one **ledger**, with a running balance and a chart marking paydays and big outflows.
-- **Plan vs. actual:** tick items as done, enter the real amount, skip or move a single occurrence, or set your actual total balance on a date.
+- View by **cutoff period** (the 10th and 25th by default), where repeats of the same item fold into one expandable row, or as a day-by-day **ledger** with each day's end balance. Filter by income or expenses, and see a chart marking paydays and big outflows.
+- **Adjusting to reality:** change the amount or date of a single occurrence, skip it, or set your actual total balance on a date (a checkpoint) and everything after it re-projects from there.
 - **Dues from Expenses show up automatically.** Overdue ones are carried to the start of the projection, and you can exclude any of them.
 - **Scenarios:** duplicate a projection, change it, and compare up to three side by side.
 
 **Dashboard**
-- Balance today according to your main projection (confirmed items only, with unconfirmed ones shown separately), days to the next payday, and the projected end balance.
+- Balance today according to your main projection, days to the next payday, and the projected end balance.
 - Overdue dues and dues in the next 30 days, each with a one-click "Log payment", plus a calendar and recent payments.
 
 **App**

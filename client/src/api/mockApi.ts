@@ -37,6 +37,27 @@ import {
 import { ApiClient } from './client';
 import { createSeedState } from '@shared/seed';
 
+/**
+ * Data from before 2.0.0 could mark an occurrence "done" with an actual amount/date.
+ * That tracking was removed; the actual values become the occurrence's amount/date.
+ */
+function migrateLegacyOverrides(list: OccurrenceOverride[] | undefined): OccurrenceOverride[] {
+  return (list ?? []).map((raw) => {
+    const { status, actualAmount, actualDate, ...ov } = raw as OccurrenceOverride & {
+      status?: 'planned' | 'done';
+      actualAmount?: number;
+      actualDate?: ISODate;
+    };
+    return status === 'done'
+      ? {
+          ...ov,
+          plannedAmount: actualAmount ?? ov.plannedAmount,
+          movedToDate: actualDate ?? ov.movedToDate,
+        }
+      : ov;
+  });
+}
+
 const STORAGE_KEY = 'ledgerity_state_v1';
 const DELAY_MS = 140;
 
@@ -69,10 +90,13 @@ class MockApiClient implements ApiClient {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as AppState;
-        // Version 1 (with accounts) is not compatible: re-seed instead
-        if (parsed && parsed.settings && parsed.version === 2) {
+        // Version 1 (with accounts) is not compatible: re-seed instead.
+        // Version 2 still had "done" tracking: fold actual amounts/dates into the occurrence.
+        if (parsed && parsed.settings && (parsed.version === 2 || parsed.version === 3)) {
           return {
             ...parsed,
+            version: 3,
+            overrides: migrateLegacyOverrides(parsed.overrides),
             settings: {
               ...parsed.settings,
               lanAccess: parsed.settings.lanAccess ?? false,
@@ -627,8 +651,13 @@ class MockApiClient implements ApiClient {
     ) {
       throw new Error('Invalid Ledgerity backup file.');
     }
-    this.saveState(parsed);
-    return deepClone(parsed);
+    const state: AppState = {
+      ...parsed,
+      version: 3,
+      overrides: migrateLegacyOverrides(parsed.overrides),
+    };
+    this.saveState(state);
+    return deepClone(state);
   }
 
   async exportExpensesCsv(): Promise<string> {

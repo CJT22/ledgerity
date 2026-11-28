@@ -183,11 +183,20 @@ export const overrideSchema = z.object({
   skipped: z.boolean().nullish(),
   movedToDate: isoDate.nullish(),
   plannedAmount: nonNegMoney.nullish(),
-  status: z.enum(['planned', 'done']),
+  note: optText(),
+  // Legacy "done" tracking (exports made before 2.0.0). Folded into the planned amount/date.
+  status: z.enum(['planned', 'done']).optional(),
   actualAmount: nonNegMoney.nullish(),
   actualDate: isoDate.nullish(),
-  note: optText(),
-});
+}).transform(({ status, actualAmount, actualDate, ...ov }) =>
+  status === 'done'
+    ? {
+        ...ov,
+        plannedAmount: actualAmount ?? ov.plannedAmount,
+        movedToDate: actualDate ?? ov.movedToDate,
+      }
+    : ov
+);
 
 export const exclusionSchema = z.object({
   projectionId: id,

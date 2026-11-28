@@ -224,20 +224,30 @@ describe('REST API', () => {
     expect(cmp.metrics[1].endBalanceDiff).toBe(0);
   });
 
-  it('marks plan-vs-actual overrides and toggles exclusions', async () => {
+  it('edits a single occurrence (legacy "done" input is folded in) and toggles exclusions', async () => {
     const run = (await t.call('GET', '/projections/proj_main/run')).data;
-    const itemRow = run.rows.find((r: any) => r.source === 'item' && r.status === 'planned');
+    const itemRow = run.rows.find((r: any) => r.source === 'item' && !r.edited);
     const ov = await t.call('PUT', '/overrides', {
       itemId: itemRow.itemId,
       originalDate: itemRow.originalDate,
-      status: 'done',
-      actualAmount: itemRow.plannedAmount + 12_345,
+      plannedAmount: itemRow.plannedAmount + 12_345,
     });
     expect(ov.status).toBe(200);
     const run2 = (await t.call('GET', '/projections/proj_main/run')).data;
     const row2 = run2.rows.find((r: any) => r.rowKey === itemRow.rowKey);
-    expect(row2.status).toBe('done');
+    expect(row2.edited).toBe(true);
     expect(row2.effectiveAmount).toBe(itemRow.plannedAmount + 12_345);
+
+    // Clients/exports from before 2.0.0 may still send done + actual amount
+    const legacy = await t.call('PUT', '/overrides', {
+      itemId: itemRow.itemId,
+      originalDate: itemRow.originalDate,
+      status: 'done',
+      actualAmount: 777,
+    });
+    expect(legacy.status).toBe(200);
+    expect(legacy.data.plannedAmount).toBe(777);
+    expect(legacy.data.status).toBeUndefined();
 
     const linked = run2.rows.find((r: any) => r.isLinkedFromExpense && !r.excluded);
     const ex = {
@@ -387,7 +397,7 @@ describe('migration 3 (accounts removed)', () => {
         INSERT INTO projection_items (id, projection_id, type, account_id, to_account_id, name, amount_minor, recurrence_json) VALUES
           ('i_rent', 'p', 'minus', 'acc_bank', NULL, 'Rent', 100000, '{"freq":"once","interval":1,"startDate":"2026-12-05","weekendRule":"none"}'),
           ('i_move', 'p', 'transfer', 'acc_bank', 'acc_cash', 'ATM', 50000, '{"freq":"once","interval":1,"startDate":"2026-12-06","weekendRule":"none"}');
-        INSERT INTO occurrence_overrides (item_id, original_date, status) VALUES ('i_rent', '2026-12-05', 'done');
+        INSERT INTO occurrence_overrides (item_id, original_date, status, note) VALUES ('i_rent', '2026-12-05', 'done', 'Paid early');
       `);
       old.close();
 
@@ -402,6 +412,45 @@ describe('migration 3 (accounts removed)', () => {
       expect(state.projectionItems.map((i) => i.id)).toEqual(['i_rent']);
       expect(state.overrides).toHaveLength(1); // kept: columns were dropped in place
       expect('defaultAccountId' in state.settings).toBe(false);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('migration 4 (done tracking removed)', () => {
+  it('turns recorded actual amounts/dates into per-date edits and drops done-only rows', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ledgerity-mig4-'));
+    const file = path.join(dir, 'old.sqlite');
+    try {
+      const old = new DatabaseSync(file);
+      old.exec('PRAGMA foreign_keys = ON;');
+      old.exec(`CREATE TABLE schema_migrations (
+        version INTEGER PRIMARY KEY, name TEXT NOT NULL,
+        applied_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')));`);
+      for (const m of migrations.filter((x) => x.version <= 3)) {
+        old.exec(m.sql);
+        old.prepare('INSERT INTO schema_migrations (version, name) VALUES (?, ?)').run(m.version, m.name);
+      }
+      old.exec(`
+        INSERT INTO projections (id, name, start_date, end_date) VALUES ('p', 'Old', '2026-12-01', '2027-01-31');
+        INSERT INTO projection_items (id, projection_id, type, name, amount_minor, recurrence_json) VALUES
+          ('i', 'p', 'minus', 'Groceries', 100000, '{"freq":"weekly","interval":1,"startDate":"2026-12-01","weekendRule":"none"}');
+        INSERT INTO occurrence_overrides (item_id, original_date, status, actual_amount_minor, actual_date, skipped) VALUES
+          ('i', '2026-12-01', 'done', 123400, '2026-12-02', 0),
+          ('i', '2026-12-08', 'done', NULL, NULL, 0),
+          ('i', '2026-12-15', 'planned', NULL, NULL, 1);
+      `);
+      old.close();
+
+      const db = new Db(file);
+      const state = new Models(db).loadState();
+      db.close();
+
+      expect(state.overrides).toEqual([
+        { itemId: 'i', originalDate: '2026-12-01', skipped: false, movedToDate: '2026-12-02', plannedAmount: 123_400 },
+        { itemId: 'i', originalDate: '2026-12-15', skipped: true },
+      ]);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

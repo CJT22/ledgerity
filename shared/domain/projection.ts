@@ -91,26 +91,18 @@ export function runProjection(
     for (const occ of occs) {
       const ov = overrideMap.get(`${item.id}::${occ.originalDate}`);
       const skipped = Boolean(ov?.skipped);
-      const status: 'planned' | 'done' = ov?.status ?? 'planned';
       const plannedAmount = ov?.plannedAmount ?? item.amount;
-      const effectiveDate =
-        status === 'done' && ov?.actualDate
-          ? ov.actualDate
-          : ov?.movedToDate
-            ? ov.movedToDate
-            : occ.effectiveDate;
+      const effectiveDate = ov?.movedToDate ? ov.movedToDate : occ.effectiveDate;
+      const edited =
+        skipped ||
+        (ov?.movedToDate !== undefined && ov.movedToDate !== occ.effectiveDate) ||
+        (ov?.plannedAmount !== undefined && ov.plannedAmount !== item.amount);
 
       if (effectiveDate < projection.startDate || effectiveDate > projection.endDate) {
         continue;
       }
 
-      const effectiveAmount = skipped
-        ? 0
-        : status === 'done'
-          ? (ov?.actualAmount ?? plannedAmount)
-          : plannedAmount;
-
-      const unconfirmed = !skipped && status !== 'done' && effectiveDate < today;
+      const effectiveAmount = skipped ? 0 : plannedAmount;
 
       rawRows.push({
         rowKey: `item::${item.id}::${occ.originalDate}`,
@@ -121,13 +113,10 @@ export function runProjection(
         type: item.type,
         name: item.name,
         plannedAmount,
-        actualAmount: ov?.actualAmount,
-        actualDate: ov?.actualDate,
         effectiveAmount,
-        status,
         skipped,
         excluded: false,
-        unconfirmed,
+        edited,
         isLinkedFromExpense: false,
         note: ov?.note ?? item.note,
         isPayday: isPaydayItem,
@@ -198,7 +187,6 @@ export function runProjection(
 
         const keyDate = args.keyDate ?? args.dueDate;
         const excluded = exclusionSet.has(`${args.sourceType}::${args.sourceId}::${keyDate}`);
-        const status: 'planned' | 'done' = isPaid ? 'done' : 'planned';
         const effectiveAmount =
           excluded || alreadyInStartBalance ? 0 : isPaid ? args.paid : remaining;
 
@@ -219,13 +207,10 @@ export function runProjection(
           type: 'minus',
           name: carriedOver ? `${args.name} · overdue` : args.name,
           plannedAmount: args.amount,
-          actualAmount: isPaid || args.paid > 0 ? args.paid : undefined,
-          actualDate: lastPayDate,
           effectiveAmount,
-          status,
           skipped: alreadyInStartBalance,
           excluded,
-          unconfirmed: !excluded && status !== 'done' && effectiveDate < today,
+          paid: isPaid,
           isLinkedFromExpense: true,
           linkedExpenseId: exp.id,
           linkedExpenseName: exp.name,
@@ -323,13 +308,9 @@ export function runProjection(
       type: 'adjustment',
       name: `Balance checkpoint${cp.note ? ` (${cp.note})` : ''}`,
       plannedAmount: cp.actualBalance,
-      actualAmount: cp.actualBalance,
-      actualDate: cp.date,
       effectiveAmount: 0, // filled during running pass
-      status: 'done',
       skipped: false,
       excluded: false,
-      unconfirmed: false,
       isLinkedFromExpense: false,
       checkpointId: cp.id,
       note: cp.note,

@@ -105,6 +105,15 @@ describe('cutoff periods', () => {
       ['2026-10-26', '2026-11-09'],
     ]);
   });
+
+  it('includes the last cutoff of a projection that ends in December', () => {
+    const periods = getCutoffPeriods('2026-12-01', '2026-12-31', [10, 25], 'none');
+    expect(periods.map((p) => [p.startDate, p.endDate])).toEqual([
+      ['2026-11-25', '2026-12-09'],
+      ['2026-12-10', '2026-12-24'],
+      ['2026-12-25', '2027-01-09'],
+    ]);
+  });
 });
 
 const basePlan = (p: Partial<InstallmentPlan>): InstallmentPlan => ({

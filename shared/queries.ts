@@ -178,27 +178,13 @@ export function buildDashboard(state: AppState, today: ISODate): DashboardData {
     state.projections.find((p) => !p.parentProjectionId) ?? state.projections[0] ?? null;
   const activeProjection = activeProjMeta ? runProjectionById(state, activeProjMeta.id, today) : null;
 
-  // Balance as of today according to the baseline projection: its starting sources + only
-  // CONFIRMED items (marked done / actually paid) + balance checkpoints. Past items not yet
-  // confirmed are reported separately as "pending" instead of being assumed to have happened.
+  // Balance as of today according to the baseline projection: its starting sources plus
+  // every item dated up to today (a projection assumes planned items happen; per-date edits
+  // and balance checkpoints are how it is corrected).
   let totalBalance: Money = activeProjection?.summary.startTotal ?? 0;
-  let pendingConfirmationCount = 0;
-  let pendingConfirmationNet = 0;
   for (const r of activeProjection?.rows ?? []) {
     if (r.effectiveDate > today) break; // rows are in date order
-    if (r.type === 'adjustment') {
-      totalBalance = r.plannedAmount; // checkpoint = actual balance on that date
-      continue;
-    }
-    if (r.skipped || r.excluded) continue;
-    if (r.status !== 'done') {
-      pendingConfirmationCount++;
-      if (r.type === 'add') pendingConfirmationNet += r.effectiveAmount;
-      else if (r.type === 'minus') pendingConfirmationNet -= r.effectiveAmount;
-      continue;
-    }
-    if (r.type === 'add') totalBalance += r.effectiveAmount;
-    else if (r.type === 'minus') totalBalance -= r.effectiveAmount;
+    totalBalance = r.runningTotal;
   }
 
   const { nextPayday, daysUntil, currentPeriod } = getNextPaydayInfo(
@@ -388,8 +374,6 @@ export function buildDashboard(state: AppState, today: ISODate): DashboardData {
     expenseSummaries,
     recentPayments,
     paydayDatesInRange,
-    pendingConfirmationCount,
-    pendingConfirmationNet,
   };
 }
 
@@ -490,7 +474,6 @@ export function buildProjectionCsv(state: AppState, projectionId: string, today:
       'Name',
       'Type',
       'PlannedAmount',
-      'ActualAmount',
       'EffectiveAmount',
       'Status',
       'Source',
@@ -506,9 +489,8 @@ export function buildProjectionCsv(state: AppState, projectionId: string, today:
         r.name,
         r.type,
         decimal(r.plannedAmount),
-        r.actualAmount !== undefined ? decimal(r.actualAmount) : '',
         decimal(r.effectiveAmount),
-        r.skipped ? 'skipped' : r.excluded ? 'excluded' : r.status,
+        r.skipped ? 'skipped' : r.excluded ? 'excluded' : r.paid ? 'paid' : r.edited ? 'edited' : 'planned',
         r.isLinkedFromExpense ? 'Expenses' : r.source,
         decimal(r.runningTotal),
         r.note ?? '',

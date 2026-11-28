@@ -306,9 +306,6 @@ export class OverridesRepo extends TableRepo<OccurrenceOverride> {
         col('skipped', 'skipped', 'bool'),
         col('movedToDate', 'moved_to_date'),
         col('plannedAmount', 'planned_amount_minor', 'int'),
-        col('status', 'status'),
-        col('actualAmount', 'actual_amount_minor', 'int'),
-        col('actualDate', 'actual_date'),
         col('note', 'note'),
       ],
       ['itemId', 'originalDate']
@@ -374,7 +371,7 @@ export class Models {
   /** Full snapshot, the shape the shared query layer works on. */
   loadState(): AppState {
     return {
-      version: 2,
+      version: 3,
       settings: this.settings.get(),
       expenses: this.expenses.list(),
       parts: this.parts.list(),

@@ -3,6 +3,33 @@
 All notable changes to Ledgerity are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.0.0] - 2026-11-28
+
+### Added
+- **By cutoff:** when the same item appears more than once in a cutoff (a Daily commute, for example), it shows as one row with the date range, how many times it occurs and the total. Click the row to see and edit each date.
+- **Ledger:** entries are grouped under one heading per day, which shows that day's end balance.
+- Filter chips (**All · Income · Expenses**) above both views.
+- Cutoffs that have already ended start collapsed, and the current one is marked **Now**.
+- **Edit this date** has a **Reset to series** button that undoes changes to a single date.
+- Rows show small tags for dates you edited, linked dues already paid on the Expenses page, and skipped or excluded entries.
+
+### Changed
+- Rows are more compact. The **Occurrence**, edit and delete buttons on every row are replaced by one **⋯** menu: *Edit this date*, *Edit series*, *Delete series* (and *Exclude* / *Open expense* for dues linked from Expenses).
+- "Projected Balance Today" on the dashboard now counts every item dated up to today, instead of only items marked done.
+
+### Removed
+- The **Done** checkbox, the "actual amount" field and the "Unconfirmed" badges on projection items. A projection now assumes planned items happen. To match what really happened, use **Edit this date** (change the amount or date, or skip it) or **Set actual balance**.
+- The dashboard's "Not yet confirmed" line.
+- The **ActualAmount** column from projection CSV exports. Its **Status** column now shows `planned`, `edited`, `paid`, `skipped` or `excluded`.
+
+### Fixed
+- **By cutoff** now shows the last cutoff of a projection that ends in November or December. It used to be dropped (for example, Dec 25–31 in a December projection). The last cutoff ends on the projection's end date.
+
+### Upgrading
+- Your database is updated automatically (schema version 4). If you recorded an actual amount or date on an item, it becomes that date's amount or date, so balances don't change. Entries that were only ticked as done no longer change anything and are removed.
+- The JSON export format is now version 3. Exports from older versions still import, with actual amounts and dates converted the same way. Exports from 2.0.0 can't be imported into older versions.
+- If you have a script that reads projection CSVs, update it for the removed **ActualAmount** column.
+
 ## [1.2.0] - 2026-11-28
 
 ### Added

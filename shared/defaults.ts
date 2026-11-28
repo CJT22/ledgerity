@@ -16,7 +16,7 @@ export const DEFAULT_SETTINGS: Settings = {
 /** Blank workspace with default settings. */
 export function createEmptyState(settings: Partial<Settings> = {}): AppState {
   return {
-    version: 2,
+    version: 3,
     settings: { ...DEFAULT_SETTINGS, ...settings },
     expenses: [],
     parts: [],

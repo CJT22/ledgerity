@@ -9,7 +9,7 @@ import React from 'react';
 import { DueStatus, ExpenseStatus } from '@shared/types';
 
 interface StatusBadgeProps {
-  status: DueStatus | ExpenseStatus | 'linked' | 'planned_tag' | 'done' | 'unconfirmed';
+  status: DueStatus | ExpenseStatus | 'linked' | 'planned_tag' | 'done';
   label?: string;
 }
 
@@ -58,12 +58,6 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, label }) => {
         <span className="inline-flex items-center align-middle gap-1 text-xs font-medium text-amber-700 dark:text-amber-400 whitespace-nowrap shrink-0">
           <Link2 className="w-3 h-3" aria-hidden="true" />
           <span>{label ?? 'From Expenses'}</span>
-        </span>
-      );
-    case 'unconfirmed':
-      return (
-        <span className="inline-flex items-center align-middle gap-1 rounded-md border border-dotted border-amber-500 dark:border-amber-600 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300 whitespace-nowrap shrink-0">
-          <span>{label ?? 'Confirm?'}</span>
         </span>
       );
     case 'active':

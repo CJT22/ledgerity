@@ -10,6 +10,8 @@
  *  - List order = insertion order (ORDER BY rowid).
  *  - Version 3 removed accounts: a projection now starts from a list of labelled "start
  *    sources" that simply add up, and everything else runs on one pooled balance.
+ *  - Version 4 removed "done" tracking on projection items: a recorded actual amount/date
+ *    became that occurrence's planned amount/date, so balances do not change.
  */
 export interface Migration {
   version: number;
@@ -245,6 +247,28 @@ export const migrations: Migration[] = [
 
       DELETE FROM settings WHERE key = 'defaultAccountId';
       DROP TABLE accounts;
+    `,
+  },
+  {
+    version: 4,
+    name: 'remove done/actual tracking from projection items',
+    sql: `
+      UPDATE occurrence_overrides
+      SET planned_amount_minor = actual_amount_minor
+      WHERE status = 'done' AND actual_amount_minor IS NOT NULL;
+
+      UPDATE occurrence_overrides
+      SET moved_to_date = actual_date
+      WHERE status = 'done' AND actual_date IS NOT NULL;
+
+      -- Rows that only marked an occurrence as done no longer change anything
+      DELETE FROM occurrence_overrides
+      WHERE skipped = 0 AND moved_to_date IS NULL AND planned_amount_minor IS NULL
+        AND (note IS NULL OR note = '');
+
+      ALTER TABLE occurrence_overrides DROP COLUMN status;
+      ALTER TABLE occurrence_overrides DROP COLUMN actual_amount_minor;
+      ALTER TABLE occurrence_overrides DROP COLUMN actual_date;
     `,
   },
 ];

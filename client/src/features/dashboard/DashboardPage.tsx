@@ -127,24 +127,10 @@ export const DashboardPage: React.FC = () => {
           value={data.activeProjection ? formatAmount(data.totalBalance) : '—'}
           tone={data.totalBalance < 0 ? 'negative' : 'default'}
           subtext={
-            <div className="space-y-1">
-              {data.activeProjection ? (
-                <div>
-                  {data.activeProjection.projection.name} · confirmed items only
-                </div>
-              ) : (
-                <div>Create a projection to see this</div>
-              )}
-              {data.pendingConfirmationCount > 0 && (
-                <div className="text-amber-700 dark:text-amber-300">
-                  Not yet confirmed:{' '}
-                  <span className="font-mono-num tabular-nums whitespace-nowrap">
-                    {formatAmount(data.pendingConfirmationNet, { showSign: true })}
-                  </span>{' '}
-                  ({data.pendingConfirmationCount} item
-                  {data.pendingConfirmationCount === 1 ? '' : 's'})
-                </div>
-              )}
+            <div>
+              {data.activeProjection
+                ? `From ${data.activeProjection.projection.name}`
+                : 'Create a projection to see this'}
             </div>
           }
         />
