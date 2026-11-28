@@ -669,7 +669,13 @@ export const ExpenseDetailPage: React.FC = () => {
                 if (ps.part.kind === 'recurring') {
                   return (
                     <span className="text-xs text-slate-600 dark:text-slate-300 capitalize">
-                      Recurring ({ps.part.recurrence?.freq.replace('_', '-')})
+                      Recurring (
+                      {ps.part.recurrence?.freq === 'biweekly'
+                        ? 'every 2 weeks'
+                        : ps.part.recurrence?.freq === 'custom'
+                          ? 'custom dates'
+                          : ps.part.recurrence?.freq.replace('_', '-')}
+                      )
                     </span>
                   );
                 }

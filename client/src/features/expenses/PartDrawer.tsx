@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { Drawer, MoneyInput, RecurrencePicker } from '../../components';
 import { useApp } from '../../context/AppContext';
-import { todayISODate } from '@shared/domain';
+import { normalizeRecurrence, todayISODate } from '@shared/domain';
 import { Money, Part, PartKind, PaymentMode, RecurrenceRule } from '@shared/types';
 
 interface PartDrawerProps {
@@ -46,7 +46,7 @@ export const PartDrawer: React.FC<PartDrawerProps> = ({
       setPaymentMode(part?.paymentMode ?? 'full');
       setNotes(part?.notes ?? '');
       setRecurrence(
-        part?.recurrence ?? {
+        part?.recurrence ? normalizeRecurrence(part.recurrence) : {
           freq: 'monthly',
           interval: 1,
           startDate: todayISODate(),
@@ -65,6 +65,10 @@ export const PartDrawer: React.FC<PartDrawerProps> = ({
     }
     if (price <= 0) {
       setError('Price must be greater than zero.');
+      return;
+    }
+    if (kind === 'recurring' && recurrence.freq === 'custom' && !recurrence.dates?.length) {
+      setError('Pick at least one date on the calendar.');
       return;
     }
     if (kind === 'recurring' && recurrence.endDate && recurrence.endDate < recurrence.startDate) {

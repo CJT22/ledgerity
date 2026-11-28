@@ -5,6 +5,7 @@ import {
   buildSchedule,
   expand,
   getCutoffPeriods,
+  normalizeRecurrence,
   runProjection,
   startTotalOf,
   summarizeExpense,
@@ -71,6 +72,27 @@ describe('recurrence expansion', () => {
         (o) => o.originalDate
       )
     ).toEqual(['2026-01-01', '2026-02-01', '2026-03-01']);
+  });
+
+  it('custom: produces exactly the picked dates, sorted and de-duplicated, within the window', () => {
+    const r = rule({
+      freq: 'custom',
+      startDate: '2026-11-03',
+      dates: ['2026-12-19', '2026-11-03', '2026-11-28', '2026-11-28', '2027-02-01'],
+    });
+    expect(expand(r, '2026-11-01', '2026-12-31').map((o) => o.originalDate)).toEqual([
+      '2026-11-03',
+      '2026-11-28',
+      '2026-12-19',
+    ]);
+  });
+
+  it('legacy biweekly normalizes to weekly × 2 with identical dates', () => {
+    const legacy = rule({ freq: 'biweekly', startDate: '2026-11-06' });
+    const norm = normalizeRecurrence(legacy);
+    expect(norm.freq).toBe('weekly');
+    expect(norm.interval).toBe(2);
+    expect(expand(norm, '2026-11-01', '2027-03-01')).toEqual(expand(legacy, '2026-11-01', '2027-03-01'));
   });
 });
 

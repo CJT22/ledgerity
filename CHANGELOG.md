@@ -3,6 +3,21 @@
 All notable changes to Ledgerity are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] - 2026-11-28
+
+### Added
+- New **Custom** option under "How often" for projection items and recurring expense parts. Pick the exact days on a calendar, across as many months as you like. Days you picked in other months are kept while you browse. A short summary under the calendar shows how many dates you picked and which ones, grouped by month. Busy months show a count, and long lists fold behind "Show all". Click a month in the summary to jump to it.
+- On projections, the Custom calendar only lets you pick days inside the projection's date range.
+
+### Changed
+- Removed "Every 2 weeks" from the "How often" choices. Use **Weekly** with "Repeat every 2 weeks" instead; it gives the same dates.
+- Custom dates are used exactly as picked, so the Weekend Adjustment setting is hidden for them.
+
+### Upgrading
+- Items that already repeat every 2 weeks keep working with the same dates. They show up as Weekly, repeating every 2 weeks, the next time you edit them. Importing an older JSON export that uses "every 2 weeks" converts those items the same way.
+- Installment plans still offer "Every 2 weeks" as a payment schedule. That setting is separate and hasn't changed.
+- JSON exports that include Custom items can't be imported into versions older than 1.1.0.
+
 ## [1.0.0] - 2026-11-24
 
 First public release.

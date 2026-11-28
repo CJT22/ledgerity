@@ -1,11 +1,16 @@
 import React from 'react';
 import { RecurrenceRule, WeekendRule } from '@shared/types';
+import { ISODate } from '@shared/types';
 import { DateInput } from './DateInput';
+import { CustomDatesCalendar } from './CustomDatesCalendar';
 
 interface RecurrencePickerProps {
   value: RecurrenceRule;
   onChange: (rule: RecurrenceRule) => void;
   allowOnce?: boolean;
+  /** Limits which days the Custom calendar lets you pick (e.g. a projection's date range). */
+  minDate?: ISODate;
+  maxDate?: ISODate;
 }
 
 const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -17,10 +22,10 @@ const FREQ_OPTIONS: { value: Freq; label: string }[] = [
   { value: 'once', label: 'Once' },
   { value: 'daily', label: 'Daily' },
   { value: 'weekly', label: 'Weekly' },
-  { value: 'biweekly', label: 'Every 2 weeks' },
   { value: 'semi_monthly', label: 'Twice a month' },
   { value: 'monthly', label: 'Monthly' },
   { value: 'yearly', label: 'Yearly' },
+  { value: 'custom', label: 'Custom' },
 ];
 
 const ordinal = (n: number): string => {
@@ -55,8 +60,6 @@ const describeInterval = (rule: RecurrenceRule): { unit: string; summary: string
       return { unit: plural('day'), summary: n === 1 ? 'Every day' : `Every ${n} days` };
     case 'weekly':
       return { unit: plural('week'), summary: n === 1 ? 'Every week' : `Every ${n} weeks` };
-    case 'biweekly':
-      return { unit: plural('2-week period'), summary: `Every ${n * 2} weeks` };
     case 'semi_monthly': {
       const days = (rule.byMonthDays && rule.byMonthDays.length > 0 ? rule.byMonthDays : [10, 25])
         .map(dayLabel)
@@ -78,6 +81,8 @@ export const RecurrencePicker: React.FC<RecurrencePickerProps> = ({
   value,
   onChange,
   allowOnce = true,
+  minDate,
+  maxDate,
 }) => {
   const startDay = () => Number(value.startDate.split('-')[2] || 1);
 
@@ -87,11 +92,32 @@ export const RecurrencePicker: React.FC<RecurrencePickerProps> = ({
    */
   const selectFreq = (freq: Freq) => {
     if (freq === value.freq) return;
-    const base: RecurrenceRule = { ...value, freq, interval: 1, byMonthDays: undefined, byWeekday: undefined };
+    const base: RecurrenceRule = {
+      ...value,
+      freq,
+      interval: 1,
+      byMonthDays: undefined,
+      byWeekday: undefined,
+      dates: undefined,
+      // Leaving Custom: start from the first picked date.
+      startDate: value.freq === 'custom' && value.dates?.[0] ? value.dates[0] : value.startDate,
+    };
     if (freq === 'semi_monthly') base.byMonthDays = [10, 25];
-    else if (freq === 'monthly') base.byMonthDays = [startDay()];
+    else if (freq === 'monthly') base.byMonthDays = [Number(base.startDate.split('-')[2] || 1)];
+    else if (freq === 'custom') {
+      // Dates are picked by hand, so no end rule and no weekend shifting.
+      base.dates = [];
+      base.endDate = null;
+      base.count = null;
+      base.weekendRule = 'none';
+    }
     onChange(base);
   };
+
+  const setCustomDates = (dates: ISODate[]) =>
+    onChange({ ...value, dates, startDate: dates[0] ?? value.startDate });
+
+  const isCustom = value.freq === 'custom';
 
   const endMode = value.count ? 'count' : value.endDate ? 'date' : 'never';
   const intervalInfo = describeInterval(value);
@@ -129,6 +155,16 @@ export const RecurrencePicker: React.FC<RecurrencePickerProps> = ({
         </div>
       </div>
 
+      {isCustom && (
+        <CustomDatesCalendar
+          value={value.dates ?? []}
+          onChange={setCustomDates}
+          min={minDate}
+          max={maxDate}
+        />
+      )}
+
+      {!isCustom && (
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <DateInput
           label="Start Date"
@@ -179,8 +215,9 @@ export const RecurrencePicker: React.FC<RecurrencePickerProps> = ({
           </div>
         )}
       </div>
+      )}
 
-      {value.freq !== 'once' && (
+      {value.freq !== 'once' && !isCustom && (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -302,6 +339,7 @@ export const RecurrencePicker: React.FC<RecurrencePickerProps> = ({
         </>
       )}
 
+      {!isCustom && (
       <div>
         <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
           Weekend Adjustment
@@ -318,6 +356,7 @@ export const RecurrencePicker: React.FC<RecurrencePickerProps> = ({
           <option value="previous_business_day">Previous business day (Sat/Sun → Friday before)</option>
         </select>
       </div>
+      )}
     </div>
   );
 };

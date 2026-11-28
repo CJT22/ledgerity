@@ -1062,6 +1062,8 @@ export const ProjectionDetailPage: React.FC = () => {
         open={itemDrawerOpen}
         projectionId={projection.id}
         defaultDate={projection.startDate}
+        rangeStart={projection.startDate}
+        rangeEnd={projection.endDate}
         item={editingSeriesItem}
         onClose={() => setItemDrawerOpen(false)}
         onSaved={() => void load()}

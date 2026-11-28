@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { Drawer, MoneyInput, RecurrencePicker } from '../../components';
 import { useApp } from '../../context/AppContext';
-import { todayISODate } from '@shared/domain';
+import { normalizeRecurrence, todayISODate } from '@shared/domain';
 import {
   Money,
   ProjectionItem,
@@ -14,6 +14,9 @@ interface ProjectionItemDrawerProps {
   open: boolean;
   projectionId: string;
   defaultDate?: string;
+  /** The projection's date range; Custom dates can only be picked inside it. */
+  rangeStart?: string;
+  rangeEnd?: string;
   item?: ProjectionItem | null;
   onClose: () => void;
   onSaved: () => void;
@@ -23,6 +26,8 @@ export const ProjectionItemDrawer: React.FC<ProjectionItemDrawerProps> = ({
   open,
   projectionId,
   defaultDate,
+  rangeStart,
+  rangeEnd,
   item,
   onClose,
   onSaved,
@@ -49,7 +54,7 @@ export const ProjectionItemDrawer: React.FC<ProjectionItemDrawerProps> = ({
       setName(item.name);
       setAmount(item.amount);
       setNote(item.note ?? '');
-      setRecurrence(item.recurrence);
+      setRecurrence(normalizeRecurrence(item.recurrence));
     } else {
       setType('minus');
       setName('');
@@ -73,6 +78,10 @@ export const ProjectionItemDrawer: React.FC<ProjectionItemDrawerProps> = ({
     }
     if (amount <= 0) {
       setError('Amount must be greater than zero.');
+      return;
+    }
+    if (recurrence.freq === 'custom' && !recurrence.dates?.length) {
+      setError('Pick at least one date on the calendar.');
       return;
     }
     if (recurrence.endDate && recurrence.endDate < recurrence.startDate) {
@@ -164,7 +173,16 @@ export const ProjectionItemDrawer: React.FC<ProjectionItemDrawerProps> = ({
           required
         />
 
-        <RecurrencePicker value={recurrence} onChange={setRecurrence} allowOnce={true} />
+        <RecurrencePicker
+          value={recurrence}
+          onChange={(r) => {
+            setRecurrence(r);
+            setError('');
+          }}
+          allowOnce={true}
+          minDate={rangeStart}
+          maxDate={rangeEnd}
+        />
 
         <div>
           <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">

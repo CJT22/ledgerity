@@ -11,6 +11,36 @@ import {
 } from './date';
 
 /**
+ * Rewrites legacy rules into their current form without changing which dates they produce:
+ * 'biweekly' (every 2N weeks) becomes 'weekly' with interval 2N. Custom rules get their dates
+ * sorted and de-duplicated, with startDate set to the first one.
+ */
+export function normalizeRecurrence(rule: RecurrenceRule): RecurrenceRule {
+  if (rule.freq === 'biweekly') {
+    return {
+      ...rule,
+      freq: 'weekly',
+      interval: 2 * Math.max(1, rule.interval || 1),
+      byWeekday: undefined,
+    };
+  }
+  if (rule.freq === 'custom') {
+    const dates = Array.from(new Set(rule.dates ?? [])).sort();
+    return {
+      ...rule,
+      interval: 1,
+      dates,
+      startDate: dates[0] ?? rule.startDate,
+      endDate: null,
+      count: null,
+      byMonthDays: undefined,
+      byWeekday: undefined,
+    };
+  }
+  return rule;
+}
+
+/**
  * Expands a RecurrenceRule into occurrences falling within [from, to] (inclusive on effectiveDate or originalDate).
  * Keeps `originalDate` as the stable occurrence key while providing `effectiveDate` after weekendRule.
  */
@@ -43,6 +73,12 @@ export function expand(
 
   if (rule.freq === 'once') {
     pushIfInRange(rule.startDate);
+    return results;
+  }
+
+  if (rule.freq === 'custom') {
+    const dates = Array.from(new Set(rule.dates ?? [])).sort();
+    for (const d of dates) pushIfInRange(d);
     return results;
   }
 

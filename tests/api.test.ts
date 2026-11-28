@@ -289,6 +289,34 @@ describe('REST API', () => {
     });
     expect(transfer.status).toBe(400);
     expect((await t.call('GET', '/accounts')).status).toBe(404);
+
+    const base = { projectionId: created.data.id, type: 'minus', name: 'Snacks', amount: 100 };
+    const custom = await t.call('POST', '/projection-items', {
+      ...base,
+      recurrence: {
+        freq: 'custom',
+        interval: 1,
+        startDate: '2026-12-01',
+        dates: ['2026-12-19', '2026-12-05', '2026-12-05'],
+        weekendRule: 'none',
+      },
+    });
+    expect(custom.status).toBe(201);
+    expect(custom.data.recurrence.dates).toEqual(['2026-12-05', '2026-12-19']);
+    expect(custom.data.recurrence.startDate).toBe('2026-12-05');
+
+    const emptyCustom = await t.call('POST', '/projection-items', {
+      ...base,
+      recurrence: { freq: 'custom', interval: 1, startDate: '2026-12-01', dates: [], weekendRule: 'none' },
+    });
+    expect(emptyCustom.status).toBe(400);
+
+    const legacy = await t.call('POST', '/projection-items', {
+      ...base,
+      recurrence: { freq: 'biweekly', interval: 1, startDate: '2026-12-04', weekendRule: 'none' },
+    });
+    expect(legacy.data.recurrence.freq).toBe('weekly');
+    expect(legacy.data.recurrence.interval).toBe(2);
   });
 
   it('exports CSV and imports a JSON backup (including AI Studio demo exports)', async () => {

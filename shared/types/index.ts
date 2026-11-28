@@ -3,13 +3,19 @@ export type ISODate = string; // 'YYYY-MM-DD'
 export type WeekendRule = 'none' | 'previous_business_day' | 'next_business_day';
 
 export interface RecurrenceRule {
-  freq: 'once' | 'daily' | 'weekly' | 'biweekly' | 'semi_monthly' | 'monthly' | 'yearly';
+  /**
+   * 'biweekly' is legacy: it is no longer offered in the UI and is read as weekly with
+   * interval × 2 (see normalizeRecurrence). 'custom' uses the hand-picked `dates` list.
+   */
+  freq: 'once' | 'daily' | 'weekly' | 'biweekly' | 'semi_monthly' | 'monthly' | 'yearly' | 'custom';
   interval: number; // every N
   startDate: ISODate;
   endDate?: ISODate | null;
   count?: number | null;
   byMonthDays?: number[]; // e.g., [10, 25]; -1 = last day of month
   byWeekday?: number[]; // 0=Sun..6=Sat
+  /** Only for freq 'custom': the exact dates, sorted ascending. startDate mirrors the first. */
+  dates?: ISODate[];
   weekendRule: WeekendRule;
 }
 

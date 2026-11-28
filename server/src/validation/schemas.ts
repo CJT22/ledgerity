@@ -17,18 +17,44 @@ const weekendRule = z.enum(['none', 'previous_business_day', 'next_business_day'
 
 export const recurrenceRuleSchema = z
   .object({
-    freq: z.enum(['once', 'daily', 'weekly', 'biweekly', 'semi_monthly', 'monthly', 'yearly']),
+    // 'biweekly' is still accepted (older exports / clients) but is stored as weekly × 2 below.
+    freq: z.enum(['once', 'daily', 'weekly', 'biweekly', 'semi_monthly', 'monthly', 'yearly', 'custom']),
     interval: z.number().int().min(1).max(120),
     startDate: isoDate,
     endDate: isoDate.nullish(),
     count: z.number().int().min(1).max(10000).nullish(),
     byMonthDays: z.array(z.number().int().min(-1).max(31)).max(31).nullish(),
     byWeekday: z.array(z.number().int().min(0).max(6)).max(7).nullish(),
+    dates: z.array(isoDate).max(1000).nullish(),
     weekendRule,
   })
   .refine((r) => !r.endDate || r.endDate >= r.startDate, {
     message: 'End date must be on or after the start date',
     path: ['endDate'],
+  })
+  .refine((r) => r.freq !== 'custom' || (r.dates?.length ?? 0) > 0, {
+    message: 'Pick at least one date',
+    path: ['dates'],
+  })
+  .transform((r) => {
+    if (r.freq === 'biweekly') {
+      return { ...r, freq: 'weekly' as const, interval: Math.min(120, r.interval * 2), byWeekday: undefined };
+    }
+    if (r.freq === 'custom') {
+      const dates = Array.from(new Set(r.dates ?? [])).sort();
+      return {
+        ...r,
+        interval: 1,
+        dates,
+        startDate: dates[0],
+        endDate: null,
+        count: null,
+        byMonthDays: undefined,
+        byWeekday: undefined,
+      };
+    }
+    // `dates` only belongs to custom rules.
+    return { ...r, dates: undefined };
   });
 
 const settingsBase = z.object({
