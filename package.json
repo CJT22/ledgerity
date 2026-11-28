@@ -1,7 +1,7 @@
 {
   "name": "ledgerity",
   "private": true,
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Local-first expense tracking and funds projection, stored in SQLite on your own computer.",
   "author": "CJT22",
   "license": "MIT",

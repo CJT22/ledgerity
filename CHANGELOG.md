@@ -3,6 +3,11 @@
 All notable changes to Ledgerity are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] - 2026-11-28
+
+### Added
+- Rename a projection or change its start and end dates with the pencil button next to its name. Items that fall outside a narrower range are only hidden. They come back if you widen the range again.
+
 ## [1.1.0] - 2026-11-28
 
 ### Added

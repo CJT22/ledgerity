@@ -50,6 +50,7 @@ import {
 import { CheckpointModal } from './CheckpointModal';
 import { ProjectionItemDrawer } from './ProjectionItemDrawer';
 import { StartSourcesModal } from './StartSourcesEditor';
+import { ProjectionDetailsModal } from './ProjectionDetailsModal';
 
 function downloadTextFile(filename: string, content: string, mime = 'text/csv;charset=utf-8;') {
   const blob = new Blob([content], { type: mime });
@@ -78,6 +79,7 @@ export const ProjectionDetailPage: React.FC = () => {
   const [editingSeriesItem, setEditingSeriesItem] = useState<ProjectionItem | null>(null);
   const [checkpointOpen, setCheckpointOpen] = useState(false);
   const [startSourcesOpen, setStartSourcesOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   // Occurrence edit modal
   const [editingOccRow, setEditingOccRow] = useState<ProjectionRow | null>(null);
@@ -618,9 +620,20 @@ export const ProjectionDetailPage: React.FC = () => {
             </Link>{' '}
             / <span>{projection.name}</span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-            {projection.name}
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+              {projection.name}
+            </h1>
+            <button
+              type="button"
+              onClick={() => setDetailsOpen(true)}
+              title="Edit name and dates"
+              aria-label="Edit projection name and dates"
+              className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+            >
+              <Edit3 className="w-4 h-4" />
+            </button>
+          </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             {formatDate(projection.startDate)} – {formatDate(projection.endDate)}
             {projection.parentProjectionId && ' · Scenario'}
@@ -1066,6 +1079,13 @@ export const ProjectionDetailPage: React.FC = () => {
         rangeEnd={projection.endDate}
         item={editingSeriesItem}
         onClose={() => setItemDrawerOpen(false)}
+        onSaved={() => void load()}
+      />
+
+      <ProjectionDetailsModal
+        open={detailsOpen}
+        projection={projection}
+        onClose={() => setDetailsOpen(false)}
         onSaved={() => void load()}
       />
 

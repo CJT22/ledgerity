@@ -275,6 +275,19 @@ describe('REST API', () => {
     expect(patched.status).toBe(200);
     expect(patched.data.startSources).toEqual([{ label: 'Lump sum', amount: 500_000 }]);
 
+    const renamed = await t.call('PATCH', `/projections/${created.data.id}`, {
+      name: 'Renamed',
+      startDate: '2026-12-01',
+      endDate: '2027-01-31',
+    });
+    expect(renamed.status).toBe(200);
+    expect(renamed.data).toMatchObject({ name: 'Renamed', startDate: '2026-12-01', endDate: '2027-01-31' });
+    const backwards = await t.call('PATCH', `/projections/${created.data.id}`, {
+      startDate: '2027-02-01',
+      endDate: '2027-01-01',
+    });
+    expect(backwards.status).toBe(400);
+
     const blank = await t.call('PATCH', `/projections/${created.data.id}`, {
       startSources: [{ label: '  ', amount: 1 }],
     });
